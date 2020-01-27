@@ -1,3 +1,6 @@
 [submodule "detectron2_repo"]
 	path = detectron2_repo
 	url = https://github.com/facebookresearch/detectron2
+[submodule "active_vision_utils"]
+	path = active_vision_utils
+	url = https://github.com/sulabh-shr/active_vision_utils.git
