@@ -7,6 +7,7 @@ from PIL import Image
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+from matplotlib import patches
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 
@@ -178,8 +179,6 @@ class ActiveVisionTriplet(Dataset):
         return None
 
     def visualize_triplet(self, idx):
-        import matplotlib.pyplot as plt
-        from matplotlib import patches
         triplet = self.triplets[idx]
 
         for k, v in triplet.items():
@@ -202,7 +201,7 @@ class ActiveVisionTriplet(Dataset):
                                           triplet['pos'][0])).resize(
             self.image_size)
 
-        fig, [ax1, ax2] = plt.subplots(2, 1, figsize=(25, 14))
+        fig, [ax1, ax2] = plt.subplots(1, 2, figsize=(10, 7))
         
         # raise Exception()
         ax1.imshow(ref_img)
@@ -252,6 +251,80 @@ class ActiveVisionTriplet(Dataset):
             print(f'Index = {idx}')
             self.visualize_triplet(idx)
 
+    def visualize_pos(self, names=None, num=None):
+        pickles_dict = self.pickles_dict
+
+        if names is not None:
+            ref_views = names
+        else:
+            keys = list(self.pickles_dict.keys())
+
+            if num is None:
+                num = len(keys)
+            
+            ref_views = np.random.choice(keys, size=num, replace=False)
+            
+        for img_name in ref_views:
+            if img_name not in pickles_dict:
+                print(f'{img_name} does not exist in pickled triplets.')
+                continue
+
+            content = pickles_dict[img_name]
+
+            matched = dict()
+
+            for neighbor_img_name, neighbor_triplets in content.items():
+                current_pairs = []
+
+                for neighbor_triplet in neighbor_triplets:
+                    current_pairs.append([neighbor_triplet[0], neighbor_triplet[1]])
+
+                fig, [ax1, ax2] = plt.subplots(1, 2, figsize=(40, 25))
+
+                ref_img_folder = self.img_folder_map[img_name]
+                pos_img_folder = ref_img_folder
+
+                ref_img = Image.open(os.path.join(self.dataset_root, ref_img_folder,
+                                      'jpg_rgb', img_name)).resize(self.image_size)
+                pos_img = Image.open(os.path.join(self.dataset_root, pos_img_folder,
+                                      'jpg_rgb', neighbor_img_name)).resize(self.image_size)
+                ax1.imshow(ref_img)
+                ax1.set_title(f'REF VIEW: {img_name}')
+
+                ax2.imshow(pos_img)
+                ax2.set_title(f'POS VIEW: {neighbor_img_name}')
+
+                count = 1
+                colors = ['red', 'blue', 'green', 'pink', 'yellow', 'purple', 'brown', 'white', 'magenta']
+
+                for ref_bbox, pos_bbox in current_pairs:
+                    text_noise = np.random.randn()*10
+
+                    ref_rect = patches.Rectangle((ref_bbox[0], ref_bbox[1]),
+                                     ref_bbox[2] - ref_bbox[0],
+                                     ref_bbox[3] - ref_bbox[1],
+                                     linewidth=5, edgecolor=colors[count%len(colors)],
+                                     facecolor='none')
+                    ax1.add_patch(ref_rect)
+                    ax1.text(ref_bbox[0]+text_noise, ref_bbox[1], f'{count}', fontsize=15, color='black',
+                        bbox=dict(facecolor='white', alpha=0.7, pad=0.8))
+
+
+                    pos_rect = patches.Rectangle((pos_bbox[0], pos_bbox[1]),
+                                                 pos_bbox[2] - pos_bbox[0],
+                                                 pos_bbox[3] - pos_bbox[1],
+                                                 linewidth=5, edgecolor=colors[count%len(colors)],
+                                                 facecolor='none')
+                    ax2.add_patch(pos_rect)
+                    ax2.text(pos_bbox[0]+text_noise, pos_bbox[1], f'{count}', fontsize=15, color='black',
+                        bbox=dict(facecolor='white', alpha=0.7, pad=0.8))
+                    count += 1
+
+                plt.subplots_adjust(left=0.02, right=0.98, wspace=0.04, hspace=0.1)
+                fig.suptitle(f'Num matches = {len(current_pairs)}')
+                plt.show()
+                plt.close()                
+
 
 if __name__ == '__main__':
     # a = ActiveVisionTriplet('/mnt/sda2/workspace/DATASETS/ActiveVision',
@@ -264,13 +337,19 @@ if __name__ == '__main__':
     #                     triplet_image_size=(224, 224), get_labels=True)
 
     a = ActiveVisionTriplet('/mnt/sda2/workspace/DATASETS/ActiveVision/',
-                        '/mnt/sda2/workspace/self_supervised_outputs/triplets/mask_rcnn_R_101_FPN_3x_1_270346/Home_003_2/triplets',
-                        instance='Home_003_2',
+                        '/mnt/sda2/workspace/self_supervised_outputs/triplets/mask_rcnn_R_101_FPN_3x_1_270346/Home_001_1/triplets',
+                        instance='Home_001_1',
                         image_size=(1920, 1080),
                         # image_size=(1344, 768),
                         triplet_image_size=(224, 224), get_labels=True)
 
-    a.visualize_multi_triplets(num=5, random=True)
+    # a.visualize_multi_triplets(num=5, random=True)
+    # a.visualize_pos(num=1)
+    # a.visualize_pos(names=['000110003530101.jpg', '000110008810101.jpg'])
+    a.visualize_pos(names=['000110003530101.jpg'])
+    
+    
+
     # for i in range(2280, 2300):
     #     a.visualize_triplet(i)
 
