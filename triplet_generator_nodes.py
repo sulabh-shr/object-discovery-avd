@@ -85,14 +85,14 @@ class TripletGeneratorNode(TripletGeneratorBase):
                                                              visualize_nodes=False)
         self.ref_views = None
 
-        with open(os.path.join(self.output_root, 'params.txt'), 'w') as f:
+        with open(os.path.join(self.output_root, f'params_{self.scene}.txt'), 'w') as f:
             _params = {
                 'SAMPLING_PARAMS': self.sampling_params,
                 'IMAGE_PARAMS': self.image_params,
                 'MATCH_PARAMS': self.match_params,
                 'PLOT_PARAMS': self.plot_params
             }
-            
+
             json.dump(_params, f)
             
 
