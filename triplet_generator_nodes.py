@@ -30,11 +30,11 @@ class TripletGeneratorNode(TripletGeneratorBase):
         super(TripletGeneratorNode, self).__init__(dataset_root=dataset_root,
                                                    proposals_path=proposals_path,
                                                    output_root=output_root)
-        SLURM_SUFFIX = '_' + datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
+        SLURM_SUFFIX = datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
 
         try:
             SLURM_JOB_ID = str(os.environ["SLURM_JOB_ID"])
-            SLURM_SUFFIX = '_' + SLURM_JOB_ID
+            SLURM_SUFFIX = SLURM_JOB_ID
         except KeyError:
             print('Slurm Job Id not avaialable')
 
@@ -322,6 +322,9 @@ class TripletGeneratorNode(TripletGeneratorBase):
             with open(pickle_path, 'wb') as f:
                 pickle.dump(triplet_dict, f)
 
+        with open(os.path.join(self.output_scene_path, 'time.txt'), 'a') as f:
+            f.write("END TIME: " + datetime.now().strftime("%m-%d-%Y_%H:%M:%S") + '\n')
+
     def reproject_match_bboxes(self, ref_name, ref_img, pcl_cam1, ref_bboxes, ref_bbox_indices,
                                neighbor_name, twc1,
                                Rwc1, output_list):
@@ -579,8 +582,8 @@ if __name__ == '__main__':
     }
 
     PLOT_PARAMS = {
-        'clusters': False,
-        'save_clusters': True,
+        'clusters': False,      # TODO: Add use case for this
+        'save_clusters': True,  # TODO: Add use case for this
         'proposals': False,
         'save_proposals': False,
         'ref_pos': False,
