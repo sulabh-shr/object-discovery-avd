@@ -12,7 +12,6 @@ import logging
 from tqdm import tqdm
 from datetime import datetime
 
-from active_vision_utils.camera_param_utils import load_camera_params
 from active_vision_utils.neighbors import distance_sort_nodes
 from active_vision_utils.matlab_utils import load_image_struct, get_tR, get_image_from_nodes
 from active_vision_utils.projection import camera_to_world_tR, generate_flat_xyz, \
