@@ -6,6 +6,7 @@ setup_logger()
 import numpy as np
 import cv2
 import random
+from datetime import datetime
 
 # import some common detectron2 utilities
 from detectron2 import model_zoo
@@ -20,7 +21,6 @@ import os
 import glob
 import torch
 from tqdm import tqdm
-import datetime
 
 import argparse
 
@@ -65,7 +65,7 @@ predictor = DefaultPredictor(cfg)
 OUTPUT_ROOT = args.output_dir
 RESULT_TYPE = 'predictor'
 FOLDER_COUNT = 1
-SLURM_SUFFIX = ''
+SLURM_SUFFIX = '_' + datetime.now().strftime("%d-%m-%Y_%H_%M_%S")  # By default, time
 
 try:
 	SLURM_JOB_ID = str(os.environ["SLURM_JOB_ID"])
@@ -86,7 +86,7 @@ with open(os.path.join(MODEL_OUTPUT_PATH, 'cfg.txt'), 'w') as f:
 	f.write(cfg.dump())
 
 with open(os.path.join(MODEL_OUTPUT_PATH, 'time.txt'), 'a') as f:
-	f.write("START TIME: " + datetime.datetime.now().strftime("%m-%d-%Y_%H:%M:%S")+'\n')
+	f.write("START TIME: " + datetime.now().strftime("%m-%d-%Y_%H:%M:%S")+'\n')
 
 print(f'Model Output path = {MODEL_OUTPUT_PATH}')
 
@@ -118,7 +118,7 @@ for scene in SCENES:
 		del(outputs)
 
 with open(os.path.join(MODEL_OUTPUT_PATH, 'time.txt'), 'a') as f:
-	f.write("END TIME:   " + datetime.datetime.now().strftime("%m-%d-%Y_%H:%M:%S")+'\n')
+	f.write("END TIME:   " + datetime.now().strftime("%m-%d-%Y_%H:%M:%S")+'\n')
 
 
 
