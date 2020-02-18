@@ -7,6 +7,7 @@ from PIL import Image
 from collections import defaultdict
 
 import matplotlib.pyplot as plt
+from visualize_bboxes import visualize_bboxes
 from matplotlib import patches
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
@@ -21,7 +22,8 @@ class ActiveVisionTriplet(Dataset):
               'Home_014_2', 'Home_015_1', 'Home_016_1', 'Office_001_1']
 
     def __init__(self, dataset_root, triplet_root, instance, image_size,
-                 triplet_image_size, get_labels=False):
+                 triplet_image_size, get_labels=False, proposals_root=None,
+                 plot_original_proposals=False):
         self.dataset_root = dataset_root
         self.triplet_root = triplet_root
 
@@ -37,6 +39,12 @@ class ActiveVisionTriplet(Dataset):
         self.image_size = image_size
         self.triplet_image_size = triplet_image_size
         self.get_labels = get_labels
+        self.proposals_root = proposals_root
+        self.plot_original_proposals = plot_original_proposals
+
+        if plot_original_proposals:
+            assert proposals_root is not None, f'To visualize original proposals, its path must be provided'
+            self.proposals_root = proposals_root
 
         if self.get_labels:
             # with open(os.path.join(self.dataset_root, 'activevision_label_map.pbtxt'), 'rb') as f:
@@ -115,10 +123,9 @@ class ActiveVisionTriplet(Dataset):
         pos_crop = pos_img.crop(pos_bbox)
         neg_crop = ref_img.crop(neg_bbox)
 
-        labels = None
+        labels = []
 
         if self.get_labels:
-            labels = []
 
             annotatations = self.annotations
             # TODO: Make this a parameter
@@ -254,6 +261,7 @@ class ActiveVisionTriplet(Dataset):
     def visualize_pos(self, names=None, num=None):
         pickles_dict = self.pickles_dict
 
+        # Sample or use given reference views
         if names is not None:
             ref_views = names
         else:
@@ -263,15 +271,14 @@ class ActiveVisionTriplet(Dataset):
                 num = len(keys)
             
             ref_views = np.random.choice(keys, size=num, replace=False)
-            
+
+        # Iterate over ref views
         for img_name in ref_views:
             if img_name not in pickles_dict:
                 print(f'{img_name} does not exist in pickled triplets.')
                 continue
 
             content = pickles_dict[img_name]
-
-            matched = dict()
 
             for neighbor_img_name, neighbor_triplets in content.items():
                 current_pairs = []
@@ -309,7 +316,6 @@ class ActiveVisionTriplet(Dataset):
                     ax1.text(ref_bbox[0]+text_noise, ref_bbox[1], f'{count}', fontsize=15, color='black',
                         bbox=dict(facecolor='white', alpha=0.7, pad=0.8))
 
-
                     pos_rect = patches.Rectangle((pos_bbox[0], pos_bbox[1]),
                                                  pos_bbox[2] - pos_bbox[0],
                                                  pos_bbox[3] - pos_bbox[1],
@@ -322,6 +328,18 @@ class ActiveVisionTriplet(Dataset):
 
                 plt.subplots_adjust(left=0.02, right=0.98, wspace=0.04, hspace=0.1)
                 fig.suptitle(f'Num matches = {len(current_pairs)}')
+
+                if self.plot_original_proposals:
+                    fig_org, [ax1_org, ax2_org] = plt.subplots(1, 2, figsize=(40, 25))
+                    ref_org_props = visualize_bboxes(dataset_root=self.dataset_root, 
+                        bboxes_dir=self.proposals_root, name=img_name, return_images=True)
+                    pos_org_props = visualize_bboxes(dataset_root=self.dataset_root, 
+                        bboxes_dir=self.proposals_root, name=neighbor_img_name, return_images=True)
+                    ax1_org.imshow(ref_org_props)
+                    ax2_org.imshow(pos_org_props)
+                    fig_org.suptitle(f'Original Proposals')
+
+                plt.subplots_adjust(left=0.02, right=0.98, wspace=0.04, hspace=0.1)
                 plt.show()
                 plt.close()                
 
@@ -341,13 +359,15 @@ if __name__ == '__main__':
                         instance='Home_001_1',
                         image_size=(1920, 1080),
                         # image_size=(1344, 768),
-                        triplet_image_size=(224, 224), get_labels=True)
+                        triplet_image_size=(224, 224), get_labels=True,
+                        proposals_root='/mnt/sda2/workspace/self_supervised_outputs/mask_rcnn_R_101_FPN_3x_1_270346/predictor',
+                        plot_original_proposals=True)
 
     # a.visualize_multi_triplets(num=5, random=True)
     # a.visualize_pos(num=1)
     # a.visualize_pos(names=['000110003530101.jpg', '000110008810101.jpg'])
     a.visualize_pos(names=['000110003530101.jpg'])
-    
+
     
 
     # for i in range(2280, 2300):
