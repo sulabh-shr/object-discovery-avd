@@ -31,7 +31,7 @@ class TripletGeneratorNode(TripletGeneratorBase):
         super(TripletGeneratorNode, self).__init__(dataset_root=dataset_root,
                                                    proposals_path=proposals_path,
                                                    output_root=output_root)
-        SLURM_SUFFIX = datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
+        SLURM_SUFFIX = '_' + datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
 
         try:
             SLURM_JOB_ID = str(os.environ["SLURM_JOB_ID"])
