@@ -93,7 +93,7 @@ class TripletGeneratorNode(TripletGeneratorBase):
         self.logger.setLevel(logging.DEBUG)
 
         with open(os.path.join(self.output_scene_path, 'time.txt'), 'a') as f:
-            f.write("START TIME: " + datetime.datetime.now().strftime("%m-%d-%Y_%H:%M:%S") + '\n')
+            f.write("START TIME: " + datetime.now().strftime("%m-%d-%Y_%H:%M:%S") + '\n')
 
         with open(os.path.join(self.output_scene_path, f'params_{self.scene}.txt'), 'w') as f:
             _params = {
