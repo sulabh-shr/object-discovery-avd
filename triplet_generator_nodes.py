@@ -26,22 +26,31 @@ from triplet_generator_base import TripletGeneratorBase
 
 class TripletGeneratorNode(TripletGeneratorBase):
 
-    def __init__(self, dataset_root, proposals_path, output_root, scene, 
+    def __init__(self, dataset_root, proposals_path, output_root, scene,
                  sampling_params, image_params, match_params, plot_params):
         super(TripletGeneratorNode, self).__init__(dataset_root=dataset_root,
                                                    proposals_path=proposals_path,
                                                    output_root=output_root)
+        SLURM_SUFFIX = datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
+
+        try:
+            SLURM_JOB_ID = str(os.environ["SLURM_JOB_ID"])
+            SLURM_SUFFIX = '_' + SLURM_JOB_ID
+        except KeyError:
+            print('Slurm Job Id not avaialable')
 
         self.scene = scene
         self.sampling_params = sampling_params
         self.image_params = image_params
         self.match_params = match_params
         self.plot_params = plot_params
-        self.triplet_save_path = os.path.join(self.output_root, scene, 'triplets')
-        self.plot_save_path = os.path.join(self.output_root, scene, 'plots')
+        self.output_scene_path = os.path.join(self.output_root, scene, SLURM_SUFFIX)
+        self.triplet_save_path = os.path.join(self.output_scene_path, 'triplets')
+        self.plot_save_path = os.path.join(self.output_scene_path, 'plots')
 
         if self.sampling_params['same_test_scene']:
-            raise NotImplementedError('Need to fix code if same scene used for training and testing')
+            raise NotImplementedError(
+                'Need to fix code if same scene used for training and testing')
 
         # SET PATHS
         self.scene_path = os.path.join(dataset_root, scene)
@@ -62,8 +71,10 @@ class TripletGeneratorNode(TripletGeneratorBase):
 
         # MAKE FOLDERS FOR SAVING
         if os.path.exists(self.plot_save_path) or os.path.exists(self.triplet_save_path):
-            if len(os.listdir(self.plot_save_path)) != 0 or len(os.listdir(self.triplet_save_path)) != 0:
-                raise Exception(f'Path {self.plot_save_path} or {self.triplet_save_path} already exists!')
+            if len(os.listdir(self.plot_save_path)) != 0 or len(
+                    os.listdir(self.triplet_save_path)) != 0:
+                raise Exception(
+                    f'Path {self.plot_save_path} or {self.triplet_save_path} already exists!')
         else:
             os.makedirs(self.plot_save_path)
             os.makedirs(self.triplet_save_path)
@@ -71,21 +82,20 @@ class TripletGeneratorNode(TripletGeneratorBase):
         # LOGGING
         self.logger = logging.getLogger(__name__)
         self.start_time = datetime.now().strftime("%Y-%m-%d--%H:%M:%S")
-        self.log_path = os.path.join(self.output_root, 'logs')
+        self.log_path = self.output_scene_path
 
         if not os.path.exists(self.log_path):
             os.mkdir(self.log_path)
 
-        logging.basicConfig(filename=os.path.join(self.log_path,f'triplet_gen_{self.scene}_{self.start_time}.log'),
-                            filemode='w')
+        logging.basicConfig(
+            filename=os.path.join(self.log_path, f'triplet_gen_{self.scene}_{self.start_time}.log'),
+            filemode='w')
         self.logger.setLevel(logging.DEBUG)
 
-        self.cluster_centers, self.cluster_nodes = distance_sort_nodes(image_struct=self.image_struct,
-                                                             scale=self.scale, near_threshold=25,
-                                                             visualize_nodes=False)
-        self.ref_views = None
+        with open(os.path.join(self.output_scene_path, 'time.txt'), 'a') as f:
+            f.write("START TIME: " + datetime.datetime.now().strftime("%m-%d-%Y_%H:%M:%S") + '\n')
 
-        with open(os.path.join(self.output_root, f'params_{self.scene}.txt'), 'w') as f:
+        with open(os.path.join(self.output_scene_path, f'params_{self.scene}.txt'), 'w') as f:
             _params = {
                 'SAMPLING_PARAMS': self.sampling_params,
                 'IMAGE_PARAMS': self.image_params,
@@ -94,7 +104,14 @@ class TripletGeneratorNode(TripletGeneratorBase):
             }
 
             json.dump(_params, f)
-            
+            del _params
+
+        # Initial clustering of places/nodes in dataset
+        self.cluster_centers, self.cluster_nodes = distance_sort_nodes(
+            image_struct=self.image_struct,
+            scale=self.scale, near_threshold=25,
+            visualize_nodes=False)
+        self.ref_views = None
 
     def load_pt_file(self, filename):
         if not filename.endswith('.pt'):
@@ -108,7 +125,6 @@ class TripletGeneratorNode(TripletGeneratorBase):
             return None
 
         return outputs['instances'].pred_boxes.tensor.cpu().numpy()
-
 
     def generate_train_test(self):
         raise NotImplementedError('Need to fix')
@@ -128,7 +144,8 @@ class TripletGeneratorNode(TripletGeneratorBase):
         all_views = []
 
         for cluster in self.cluster_nodes:
-            current_cluster_views = get_image_from_nodes(nodes=cluster, image_struct=self.image_struct)
+            current_cluster_views = get_image_from_nodes(nodes=cluster,
+                                                         image_struct=self.image_struct)
             views_per_cluster.append(current_cluster_views)
             all_views += current_cluster_views
 
@@ -139,8 +156,8 @@ class TripletGeneratorNode(TripletGeneratorBase):
             num_views_in_cluster = len(cluster_views)
             available_indices = list(range(num_views_in_cluster))
             available_indices_shuffled = np.random.choice(available_indices,
-                                                              size=num_views_in_cluster,
-                                                              replace=False)
+                                                          size=num_views_in_cluster,
+                                                          replace=False)
 
             num_sampled = 0
 
@@ -267,7 +284,6 @@ class TripletGeneratorNode(TripletGeneratorBase):
                     plt.show()
 
                 if self.plot_params['save_proposals']:
-
                     fig.savefig(os.path.join(self.plot_save_path,
                                              f'proposals_{ref_view.split(".")[0]}.png'),
                                 bbox_inches='tight', dpi=300)
@@ -307,7 +323,8 @@ class TripletGeneratorNode(TripletGeneratorBase):
             with open(pickle_path, 'wb') as f:
                 pickle.dump(triplet_dict, f)
 
-    def reproject_match_bboxes(self, ref_name, ref_img, pcl_cam1, ref_bboxes, ref_bbox_indices, neighbor_name, twc1,
+    def reproject_match_bboxes(self, ref_name, ref_img, pcl_cam1, ref_bboxes, ref_bbox_indices,
+                               neighbor_name, twc1,
                                Rwc1, output_list):
         """
             Reproject all Camera World pixels of reference image to Neighbor View 2d
@@ -462,7 +479,8 @@ class TripletGeneratorNode(TripletGeneratorBase):
                                         numbering=False, edgecolor='r',
                                         return_fig=True, linewidth=3)
 
-                    fig.suptitle(f'Triplet_{ref_name_raw}_{neighbor_name_raw}_{e}\nIOU = {max_iou:.3f}')
+                    fig.suptitle(
+                        f'Triplet_{ref_name_raw}_{neighbor_name_raw}_{e}\nIOU = {max_iou:.3f}')
 
                     if self.plot_params['triplet']:
                         # print('plot triplet')
@@ -515,18 +533,17 @@ class TripletGeneratorNode(TripletGeneratorBase):
 
 
 if __name__ == '__main__':
-
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_root", type=str, required=True, 
-        help="Root directory of the dataset.")
-    parser.add_argument("--proposals_path", type=str, required=True, 
-        help="Path to where proposals is stored.")
-    parser.add_argument("--output_root", type=str, required=True, 
-        help="Root directory to store the outputs.")
+    parser.add_argument("--dataset_root", type=str, required=True,
+                        help="Root directory of the dataset.")
+    parser.add_argument("--proposals_path", type=str, required=True,
+                        help="Path to where proposals is stored.")
+    parser.add_argument("--output_root", type=str, required=True,
+                        help="Root directory to store the outputs.")
     parser.add_argument("--scene", type=str, required=True,
-        help="Scene for which the triplet is to be generated.")
+                        help="Scene for which the triplet is to be generated.")
     args = parser.parse_args()
 
     dataset_root = args.dataset_root
@@ -537,11 +554,12 @@ if __name__ == '__main__':
     SAMPLING_PARAMS = {
         'proposals_per_img': 100,
         'sample_per_cluster': 3,
-        'neighbor_max_depth': 2,
+        'neighbor_max_depth': 3,
         'neighbor_directions': ['rotate_ccw', 'forward', 'rotate_cw'],
         'samples_per_depth': {
-            1: 1,
-            2: 3
+            1: 2,
+            2: 5,
+            3: 5
         },
         'proposals_per_neighbor_image': 100,
         'same_test_scene': False
@@ -553,7 +571,7 @@ if __name__ == '__main__':
         'proposal_size': (1920, 1080),
         'proposal_width': 1920,
         'proposal_height': 1080
-        }
+    }
 
     MATCH_PARAMS = {
         'min_valid_pixels': 15,
