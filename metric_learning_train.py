@@ -7,6 +7,7 @@ import json
 import pickle
 from tqdm import tqdm
 from datetime import datetime
+from time import time
 
 import torch
 import torch.optim as optim
@@ -28,6 +29,7 @@ def train(train_params, paths, model_params, data_params):
 
     triplet_img_size = model_params['triplet_img_size']
     margin = model_params['margin']
+    embedding_model = model_params['embedding_model']
 
     # OUTPUT FOLDER SETUP
     SLURM_SUFFIX = datetime.now().strftime("%d-%m-%Y_%H_%M_%S")
@@ -56,7 +58,7 @@ def train(train_params, paths, model_params, data_params):
     val_data_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 
     # MODEL SETUP
-    model = MetricLearningNet()
+    model = MetricLearningNet(model=embedding_model)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     losses = {'val_loss': [],
@@ -85,19 +87,32 @@ def train(train_params, paths, model_params, data_params):
 
             with tqdm(total=len(train_data_loader)) as it_bar:
                 it_bar.set_description(f'Epoch={epoch + 1}'.ljust(20))
+                # start = time()
 
                 for idx, (ref_list, pos_list, neg_list, labels) in enumerate(train_data_loader):
                     optimizer.zero_grad()
-
+                    # print(f'Loading: {time()-start}')
+                    # start = time()
                     ref_emb, pos_emb, neg_emb = model(ref_list, pos_list, neg_list)
-                    loss = triplet_loss(ref_emb, pos_emb, neg_emb, min_dist_neg=margin)
+                    # print(f'Forward: {time()-start}')
 
+                    # start = time()
+                    loss = triplet_loss(ref_emb, pos_emb, neg_emb, min_dist_neg=margin)
+                    # print(f'Loss calc: {time()-start}')
                     loss_per_iter.append(loss.item())
 
+                    # start = time()
                     loss.backward()
+                    # print(f'Loss back: {time()-start}')
+
+                    # start = time()
                     optimizer.step()
+                    # print(f'Optimizer step: {time()-start}')
+
                     it_bar.set_postfix(train_loss=f'{loss:.4f}')
                     it_bar.update()
+
+                    # start = time()
 
                 losses['train_loss'].append(loss_per_iter)
 
@@ -145,9 +160,9 @@ if __name__ == '__main__':
 
     train_params = {
         'epochs': 5,
-        'batch_size': 32,
+        'batch_size': 16,
         'val_size': 0.1,
-        'learning_rate': 0.001
+        'learning_rate': 0.001,
     }
 
     paths = {
@@ -164,7 +179,8 @@ if __name__ == '__main__':
 
     model_params = {
         'triplet_img_size': (224, 224),
-        'margin': 1
+        'margin': 1,
+        'embedding_model': 'resent18'
     }
 
     train(train_params, paths, model_params, data_params)
